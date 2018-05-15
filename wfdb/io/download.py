@@ -8,6 +8,12 @@ import requests
 
 db_index_url = 'http://physionet.org/physiobank/database/'
 
+try:
+    if os.environ.get('WFDB_PATH') is not None:
+        db_index_url = os.environ.get('WFDB_PATH')
+        print("Using URL specified in WFDB_PATH : ", db_index_url)
+except KeyError:
+    print("WFDB_PATH not found in environment. Using default URL ", db_index_url)
 
 
 def stream_header(record_name, pb_dir):
@@ -55,9 +61,9 @@ def stream_dat(file_name, pb_dir, fmt, bytecount, startbyte, datatypes):
     url = posixpath.join(db_index_url, pb_dir, file_name)
 
     # Specify the byte range
-    endbyte = startbyte + bytecount-1
-    headers = {"Range": "bytes="+str(startbyte)+"-"+str(endbyte),
-               'Accept-Encoding': '*/*'}
+    endbyte = startbyte + bytecount - 1
+    headers = {"Range": "bytes=" + str(startbyte) + "-" + str(endbyte),
+               'Accept-Encoding': '*'}
 
     # Get the content
     r = requests.get(url, headers=headers, stream=True)
