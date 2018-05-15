@@ -8,7 +8,67 @@ import requests
 
 db_index_url = 'http://physionet.org/physiobank/database/'
 
+def stream_header_url(header_url):
+    """
+    Read a header file from a specified url
 
+    """
+    # Full url of header location
+    url = header_url
+    print url
+    r = requests.get(url)
+
+    # Raise HTTPError if invalid url
+    r.raise_for_status()
+
+    # Get each line as a string
+    filelines = r.content.decode('iso-8859-1').splitlines()
+
+    # Separate content into header and comment lines
+    header_lines = []
+    comment_lines = []
+
+    for line in filelines:
+        line = str(line.strip())
+        # Comment line
+        if line.startswith('#'):
+            comment_lines.append(line)
+        # Non-empty non-comment line = header line.
+        elif line:
+            # Look for a comment in the line
+            ci = line.find('#')
+            if ci > 0:
+                header_lines.append(line[:ci])
+                # comment on same line as header line
+                comment_lines.append(line[ci:])
+            else:
+                header_lines.append(line)
+
+    return (header_lines, comment_lines)
+
+
+# Read certain bytes from a dat file from physiobank
+def stream_dat_url(dat_url, fmt, bytecount, startbyte, datatypes):
+
+    # Full url of dat file
+    url = dat_url
+    print url
+    # Specify the byte range
+    endbyte = startbyte + bytecount-1
+    headers = {"Range": "bytes="+str(startbyte)+"-"+str(endbyte)}
+
+    # Get the content
+    r = requests.get(url, headers=headers, stream=True)
+
+    # Raise HTTPError if invalid url
+    r.raise_for_status()
+
+    sigbytes = r.content
+
+    # Convert to numpy array
+    sigbytes = np.fromstring(sigbytes, dtype = np.dtype(datatypes[fmt]))
+
+    return sigbytes
 
 def stream_header(record_name, pb_dir):
     """

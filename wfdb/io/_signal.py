@@ -679,7 +679,7 @@ class SignalMixin(object):
 
 def rd_segment(file_name, dirname, pb_dir, n_sig, fmt, sig_len, byte_offset,
               samps_per_frame, skew, sampfrom, sampto, channels,
-              smooth_frames, ignore_skew):
+              smooth_frames, ignore_skew, url=None):
     """
     Read the samples from a single segment record's associated dat file(s)
     'channels', 'sampfrom', 'sampto', 'smooth_frames', and 'ignore_skew' are
@@ -750,7 +750,7 @@ def rd_segment(file_name, dirname, pb_dir, n_sig, fmt, sig_len, byte_offset,
         # Read each wanted dat file and store signals
         for fn in w_file_name:
             signals[:, out_datchannel[fn]] = rddat(fn, dirname, pb_dir, w_fmt[fn], len(datchannel[fn]),
-                sig_len, w_byte_offset[fn], w_samps_per_frame[fn], w_skew[fn], sampfrom, sampto, smooth_frames)[:, r_w_channel[fn]]
+                sig_len, w_byte_offset[fn], w_samps_per_frame[fn], w_skew[fn], sampfrom, sampto, smooth_frames, url=url)[:, r_w_channel[fn]]
 
     # Return each sample in signals with multiple samples/frame, without smoothing.
     # Return a list of numpy arrays for each signal.
@@ -760,7 +760,7 @@ def rd_segment(file_name, dirname, pb_dir, n_sig, fmt, sig_len, byte_offset,
         for fn in w_file_name:
             # Get the list of all signals contained in the dat file
             datsignals = rddat(fn, dirname, pb_dir, w_fmt[fn], len(datchannel[fn]),
-                sig_len, w_byte_offset[fn], w_samps_per_frame[fn], w_skew[fn], sampfrom, sampto, smooth_frames)
+                sig_len, w_byte_offset[fn], w_samps_per_frame[fn], w_skew[fn], sampfrom, sampto, smooth_frames, url=url)
 
             # Copy over the wanted signals
             for cn in range(len(out_datchannel[fn])):
@@ -771,7 +771,7 @@ def rd_segment(file_name, dirname, pb_dir, n_sig, fmt, sig_len, byte_offset,
 
 def rddat(file_name, dirname, pb_dir, fmt, n_sig,
           sig_len, byte_offset, samps_per_frame,
-          skew, sampfrom, sampto, smooth_frames):
+          skew, sampfrom, sampto, smooth_frames, url=None):
     """
     Get samples from a WFDB dat file.
     'sampfrom', 'sampto', and smooth_frames are user desired
@@ -822,13 +822,13 @@ def rddat(file_name, dirname, pb_dir, fmt, n_sig,
             # Extra number of bytes to append onto the bytes read from the dat file.
             extrabytenum = totalprocessbytes - totalreadbytes
 
-            sigbytes = np.concatenate((getdatbytes(file_name, dirname, pb_dir, fmt, startbyte, nreadsamples),
+            sigbytes = np.concatenate((getdatbytes(file_name, dirname, pb_dir, fmt, startbyte, nreadsamples, url=url),
                                       np.zeros(extrabytenum, dtype = np.dtype(dataloadtypes[fmt]))))
         else:
-            sigbytes = np.concatenate((getdatbytes(file_name, dirname, pb_dir, fmt, startbyte, nreadsamples),
+            sigbytes = np.concatenate((getdatbytes(file_name, dirname, pb_dir, fmt, startbyte, nreadsamples, url=url),
                                       np.zeros(extraflatsamples, dtype = np.dtype(dataloadtypes[fmt]))))
     else:
-        sigbytes = getdatbytes(file_name, dirname, pb_dir, fmt, startbyte, nreadsamples)
+        sigbytes = getdatbytes(file_name, dirname, pb_dir, fmt, startbyte, nreadsamples, url=url)
 
     # Continue to process the read values into proper samples
 
@@ -994,7 +994,7 @@ def requiredbytenum(mode, fmt, nsamp):
     return int(nbytes)
 
 
-def getdatbytes(file_name, dirname, pb_dir, fmt, startbyte, nsamp):
+def getdatbytes(file_name, dirname, pb_dir, fmt, startbyte, nsamp, url=None):
     """
     Read bytes from a dat file, either local or remote, into a numpy array.
     Slightly misleading function name. Does not return bytes object.
@@ -1036,6 +1036,8 @@ def getdatbytes(file_name, dirname, pb_dir, fmt, startbyte, nsamp):
 
     # Stream dat file from physiobank
     # Same output as above np.fromfile.
+    elif pb_dir=="url":
+        sigbytes = download.stream_dat_url(url, fmt, bytecount, startbyte, dataloadtypes)
     else:
         sigbytes = download.stream_dat(file_name, pb_dir, fmt, bytecount, startbyte, dataloadtypes)
 

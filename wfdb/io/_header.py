@@ -672,7 +672,7 @@ def wfdb_strptime(time_string):
     return datetime.datetime.strptime(time_string, time_fmt).time()
 
 
-def get_header_lines(record_name, pb_dir):
+def get_header_lines(record_name, pb_dir, url=None):
     """
     Read a header file to get comment and non-comment lines
 
@@ -700,6 +700,8 @@ def get_header_lines(record_name, pb_dir):
                     else:
                         header_lines.append(line)
     # Read online header file
+    elif pb_dir=="url":
+        header_lines, comment_lines = download.stream_header_url(url)
     else:
         header_lines, comment_lines = download.stream_header(record_name, pb_dir)
 

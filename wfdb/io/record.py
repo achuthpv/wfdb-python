@@ -570,7 +570,7 @@ class MultiRecord(BaseRecord, _header.MultiHeaderMixin):
         return (seg_numbers, readsamps)
 
 
-    def _get_required_channels(self, seg_numbers, channels, dirname, pb_dir):
+    def _get_required_channels(self, seg_numbers, channels, dirname, pb_dir, url=None):
         """
         Get the channel numbers to be read from each specified segment,
         given the channel numbers specified for the entire record.
@@ -611,7 +611,7 @@ class MultiRecord(BaseRecord, _header.MultiHeaderMixin):
                     # Get the signal names of the current segment
                     s_sig_names = rdheader(
                         os.path.join(dirname, self.seg_name[seg_numbers[i]]),
-                        pb_dir=pb_dir).sig_name
+                        pb_dir=pb_dir, url=url).sig_name
                     required_channels.append(get_wanted_channels(
                         w_sig_names, s_sig_names))
 
@@ -939,7 +939,7 @@ def check_np_array(item, field_name, ndim, parent_class, channel_num=None):
 
 #------------------------- Reading Records --------------------------- #
 
-def rdheader(record_name, pb_dir=None, rd_segments=False):
+def rdheader(record_name, pb_dir=None, rd_segments=False, url=None):
     """
     Read a WFDB header file and return a `Record` or `MultiRecord`
     object with the record descriptors as attributes.
@@ -975,7 +975,7 @@ def rdheader(record_name, pb_dir=None, rd_segments=False):
     """
 
     # Read the header file. Separate comment and non-comment lines
-    header_lines, comment_lines = _header.get_header_lines(record_name, pb_dir)
+    header_lines, comment_lines = _header.get_header_lines(record_name, pb_dir, url=url)
 
     # Get fields from record line
     record_fields = _header._read_record_line(header_lines[0])
@@ -1027,7 +1027,7 @@ def rdheader(record_name, pb_dir=None, rd_segments=False):
                     record.segments.append(None)
                 else:
                     record.segments.append(rdheader(os.path.join(dirname, s),
-                                                    pb_dir))
+                                                    pb_dir, url=url))
             # Fill in the sig_name attribute
             record.sig_name = record.get_sig_name()
             # Fill in the sig_segments attribute
@@ -1040,7 +1040,7 @@ def rdheader(record_name, pb_dir=None, rd_segments=False):
 
 
 def rdrecord(record_name, sampfrom=0, sampto='end', channels='all',
-             physical=True, pb_dir=None, m2s=True, smooth_frames=True,
+             physical=True, pb_dir=None, urldat=None, urlhea=None, m2s=True, smooth_frames=True,
              ignore_skew=False, return_res=64, force_channels=True):
     """
     Read a WFDB record and return the signal and record descriptors as
@@ -1127,7 +1127,7 @@ def rdrecord(record_name, sampfrom=0, sampto='end', channels='all',
     dirname, base_record_name = os.path.split(record_name)
 
     # Read the header fields
-    record = rdheader(record_name, pb_dir=pb_dir, rd_segments=False)
+    record = rdheader(record_name, pb_dir=pb_dir, rd_segments=False, url=urlhea)
 
     # Set defaults for sampto and channels input variables
     if sampto == 'end':
@@ -1146,7 +1146,7 @@ def rdrecord(record_name, sampfrom=0, sampto='end', channels='all',
             # Read signals from the associated dat files that contain wanted channels
             record.d_signal = _signal.rd_segment(record.file_name, dirname, pb_dir, record.n_sig, record.fmt, record.sig_len,
                                                   record.byte_offset, record.samps_per_frame, record.skew,
-                                                  sampfrom, sampto, channels, smooth_frames, ignore_skew)
+                                                  sampfrom, sampto, channels, smooth_frames, ignore_skew, url=urldat)
 
             # Arrange/edit the object fields to reflect user channel
             # and/or signal range input
@@ -1161,7 +1161,7 @@ def rdrecord(record_name, sampfrom=0, sampto='end', channels='all',
         else:
             record.e_d_signal = _signal.rd_segment(record.file_name, dirname, pb_dir, record.n_sig, record.fmt, record.sig_len,
                                                     record.byte_offset, record.samps_per_frame, record.skew,
-                                                    sampfrom, sampto, channels, smooth_frames, ignore_skew)
+                                                    sampfrom, sampto, channels, smooth_frames, ignore_skew, url=urldat)
 
             # Arrange/edit the object fields to reflect user channel
             # and/or signal range input
@@ -1193,13 +1193,13 @@ def rdrecord(record_name, sampfrom=0, sampto='end', channels='all',
         if record.layout == 'variable':
             record.segments[0] = rdheader(os.path.join(dirname,
                                                        record.seg_name[0]),
-                                          pb_dir=pb_dir)
+                                          pb_dir=pb_dir, url=urlhea)
 
         # The segment numbers and samples within each segment to read.
         seg_numbers, seg_ranges  = record._required_segments(sampfrom, sampto)
         # The channels within each segment to read
         seg_channels = record._get_required_channels(seg_numbers, channels,
-                                                     dirname, pb_dir)
+                                                     dirname, pb_dir, url=urlhea)
 
         # Read the desired samples in the relevant segments
         for i in range(len(seg_numbers)):
@@ -1211,7 +1211,7 @@ def rdrecord(record_name, sampfrom=0, sampto='end', channels='all',
                 record.segments[seg_num] = rdrecord(
                     os.path.join(dirname, record.seg_name[seg_num]),
                     sampfrom=seg_ranges[i][0], sampto=seg_ranges[i][1],
-                    channels=seg_channels[i], physical=physical, pb_dir=pb_dir)
+                    channels=seg_channels[i], physical=physical, pb_dir=pb_dir, urlhea=urlhea, urldat=urldat)
 
         # Arrange the fields of the layout specification segment, and
         # the overall object, to reflect user input.
@@ -1231,7 +1231,7 @@ def rdrecord(record_name, sampfrom=0, sampto='end', channels='all',
     return record
 
 
-def rdsamp(record_name, sampfrom=0, sampto='end', channels='all', pb_dir=None):
+def rdsamp(record_name, sampfrom=0, sampto='end', channels='all', pb_dir=None, urlhea=None, urldat=None):
     """
     Read a WFDB record, and return the physical signals and a few important
     descriptor fields.
@@ -1293,7 +1293,7 @@ def rdsamp(record_name, sampfrom=0, sampto='end', channels='all', pb_dir=None):
     """
     record = rdrecord(record_name=record_name, sampfrom=sampfrom,
                       sampto=sampto, channels=channels, physical=True,
-                      pb_dir=pb_dir, m2s=True)
+                      pb_dir=pb_dir, urlhea=urlhea, urldat=urldat, m2s=True)
 
     signals = record.p_signal
     fields = {}
